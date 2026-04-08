@@ -208,3 +208,6 @@ __marimo__/
 
 # Claude Code local settings
 .claude/
+
+# Git worktrees
+.worktrees/
