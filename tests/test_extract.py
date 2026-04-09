@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 import pandas as pd
 from sqlalchemy import create_engine, text
 import os
@@ -13,6 +13,7 @@ PG_URL = os.getenv(
 )
 
 
+@pytest.mark.integration
 def test_postgres_is_reachable():
     engine = create_engine(PG_URL)
     try:
@@ -23,16 +24,20 @@ def test_postgres_is_reachable():
         engine.dispose()
 
 
+@pytest.mark.integration
 def test_create_raw_schema_creates_schema():
     """create_raw_schema should create the 'raw' schema in PostgreSQL."""
     engine = create_engine(PG_URL)
-    create_raw_schema(engine)
-    with engine.connect() as conn:
-        result = conn.execute(text(
-            "SELECT schema_name FROM information_schema.schemata "
-            "WHERE schema_name = 'raw'"
-        )).fetchone()
-    assert result is not None, "Schema 'raw' was not created"
+    try:
+        create_raw_schema(engine)
+        with engine.connect() as conn:
+            result = conn.execute(text(
+                "SELECT schema_name FROM information_schema.schemata "
+                "WHERE schema_name = 'raw'"
+            )).fetchone()
+        assert result is not None, "Schema 'raw' was not created"
+    finally:
+        engine.dispose()
 
 
 def test_load_table_returns_correct_row_count():
@@ -57,8 +62,8 @@ def test_load_table_calls_to_sql_with_correct_args():
     mock_pg = MagicMock()
     fake_df = pd.DataFrame({"order_id": [1]})
 
-    with patch("extract.extract.pd.read_sql", return_value=fake_df) as mock_read:
-        with patch.object(fake_df.__class__, "to_sql") as mock_to_sql:
+    with patch("extract.extract.pd.read_sql", return_value=fake_df):
+        with patch("pandas.DataFrame.to_sql") as mock_to_sql:
             load_table(mock_mysql, mock_pg, "orders", ["order_id"])
             mock_to_sql.assert_called_once_with(
                 "orders", mock_pg, schema="raw", if_exists="replace", index=False
