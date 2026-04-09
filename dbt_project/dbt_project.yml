@@ -1,0 +1,16 @@
+name: basket_craft
+version: '1.0.0'
+config-version: 2
+
+profile: basket_craft
+
+model-paths: ["models"]
+
+models:
+  basket_craft:
+    staging:
+      +materialized: view
+      +schema: staging
+    marts:
+      +materialized: table
+      +schema: marts

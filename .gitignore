@@ -211,3 +211,6 @@ __marimo__/
 
 # Git worktrees
 .worktrees/
+
+# dbt profiles (contains credentials)
+dbt_project/profiles.yml
