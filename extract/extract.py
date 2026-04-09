@@ -1,0 +1,75 @@
+import os
+import sys
+import pandas as pd
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
+
+load_dotenv()
+
+MYSQL_URL = (
+    f"mysql+pymysql://{os.getenv('MYSQL_USER')}:{os.getenv('MYSQL_PASSWORD')}"
+    f"@{os.getenv('MYSQL_HOST')}:{os.getenv('MYSQL_PORT')}/{os.getenv('MYSQL_DATABASE')}"
+)
+
+PG_URL = (
+    f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
+    f"@{os.getenv('POSTGRES_HOST')}:{os.getenv('POSTGRES_PORT')}/{os.getenv('POSTGRES_DB')}"
+)
+
+TABLES = {
+    "orders": [
+        "order_id", "created_at", "website_session_id", "user_id",
+        "primary_product_id", "items_purchased", "price_usd", "cogs_usd",
+    ],
+    "order_items": [
+        "order_item_id", "created_at", "order_id", "product_id",
+        "is_primary_item", "price_usd", "cogs_usd",
+    ],
+    "products": [
+        "product_id", "created_at", "product_name", "description",
+    ],
+}
+
+
+def create_raw_schema(pg_engine):
+    with pg_engine.connect() as conn:
+        conn.execute(text("CREATE SCHEMA IF NOT EXISTS raw"))
+        conn.commit()
+
+
+def load_table(mysql_engine, pg_engine, table_name, columns):
+    col_list = ", ".join(columns)
+    df = pd.read_sql(f"SELECT {col_list} FROM {table_name}", mysql_engine)
+    row_count = len(df)
+    df.to_sql(table_name, pg_engine, schema="raw", if_exists="replace", index=False)
+    return row_count
+
+
+def main():
+    try:
+        mysql_engine = create_engine(MYSQL_URL)
+        mysql_engine.connect().close()
+    except Exception as e:
+        print(f"ERROR: Cannot connect to MySQL at {os.getenv('MYSQL_HOST')}: {e}")
+        sys.exit(1)
+
+    try:
+        pg_engine = create_engine(PG_URL)
+        pg_engine.connect().close()
+    except Exception as e:
+        print(f"ERROR: Cannot connect to PostgreSQL at {os.getenv('POSTGRES_HOST')}: {e}")
+        sys.exit(1)
+
+    print("Creating raw schema...")
+    create_raw_schema(pg_engine)
+
+    for table_name, columns in TABLES.items():
+        print(f"Loading {table_name}...", end=" ", flush=True)
+        count = load_table(mysql_engine, pg_engine, table_name, columns)
+        print(f"{count} rows loaded into raw.{table_name}")
+
+    print("Extract complete.")
+
+
+if __name__ == "__main__":
+    main()
