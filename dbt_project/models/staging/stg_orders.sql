@@ -5,7 +5,7 @@ SELECT
     user_id,
     primary_product_id,
     items_purchased,
-    price_usd::NUMERIC      AS price_usd,
-    cogs_usd::NUMERIC       AS cogs_usd
+    price_usd::NUMERIC(10,2)    AS price_usd,
+    cogs_usd::NUMERIC(10,2)     AS cogs_usd
 FROM {{ source('raw', 'orders') }}
 WHERE order_id IS NOT NULL
