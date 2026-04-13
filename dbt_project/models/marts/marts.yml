@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: monthly_sales_summary
+    columns:
+      - name: product_name
+        tests:
+          - not_null
+      - name: month
+        tests:
+          - not_null
+      - name: revenue_usd
+        tests:
+          - not_null
+      - name: order_count
+        tests:
+          - not_null
+      - name: avg_order_value_usd
+        tests:
+          - not_null
