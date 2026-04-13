@@ -211,3 +211,9 @@ __marimo__/
 
 # Git worktrees
 .worktrees/
+
+# dbt profiles (contains credentials)
+dbt_project/profiles.yml
+
+# dbt auto-generated user ID
+dbt_project/.user.yml
