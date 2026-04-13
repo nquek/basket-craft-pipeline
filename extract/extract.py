@@ -42,7 +42,7 @@ def _build_urls():
 
 def create_raw_schema(pg_engine):
     with pg_engine.connect() as conn:
-        conn.execute(text("CREATE SCHEMA IF NOT EXISTS raw"))
+        conn.execute(text("CREATE SCHEMA IF NOT EXISTS public"))
         conn.commit()
 
 
@@ -52,9 +52,9 @@ def load_table(mysql_engine, pg_engine, table_name, columns):
     row_count = len(df)
     # Drop with CASCADE so dependent views (e.g. dbt staging views) are removed first
     with pg_engine.connect() as conn:
-        conn.execute(text(f"DROP TABLE IF EXISTS raw.{table_name} CASCADE"))
+        conn.execute(text(f"DROP TABLE IF EXISTS public.{table_name} CASCADE"))
         conn.commit()
-    df.to_sql(table_name, pg_engine, schema="raw", if_exists="replace", index=False)
+    df.to_sql(table_name, pg_engine, schema="public", if_exists="replace", index=False)
     return row_count
 
 
@@ -84,7 +84,7 @@ def main():
         for table_name, columns in TABLES.items():
             print(f"Loading {table_name}...", end=" ", flush=True)
             count = load_table(mysql_engine, pg_engine, table_name, columns)
-            print(f"{count} rows loaded into raw.{table_name}")
+            print(f"{count} rows loaded into public.{table_name}")
 
         print("Extract complete.")
     finally:

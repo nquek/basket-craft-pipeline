@@ -2,7 +2,7 @@ version: 2
 
 sources:
   - name: raw
-    schema: raw
+    schema: public
     loaded_at_field: created_at
     freshness:
       warn_after: {count: 7, period: day}
