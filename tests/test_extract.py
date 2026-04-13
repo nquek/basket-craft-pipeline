@@ -3,13 +3,15 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 from sqlalchemy import create_engine, text
 import os
+from dotenv import load_dotenv
 
 from extract.extract import create_raw_schema, load_table
 
+load_dotenv()
 
-PG_URL = os.getenv(
-    "TEST_DATABASE_URL",
-    "postgresql+psycopg2://pipeline:pipeline@localhost:5432/basket_craft_dw"
+PG_URL = (
+    f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
+    f"@{os.getenv('POSTGRES_HOST')}:{os.getenv('POSTGRES_PORT')}/{os.getenv('POSTGRES_DB')}"
 )
 
 
