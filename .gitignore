@@ -214,3 +214,6 @@ __marimo__/
 
 # dbt profiles (contains credentials)
 dbt_project/profiles.yml
+
+# dbt auto-generated user ID
+dbt_project/.user.yml

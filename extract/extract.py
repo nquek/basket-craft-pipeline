@@ -50,6 +50,10 @@ def load_table(mysql_engine, pg_engine, table_name, columns):
     col_list = ", ".join(columns)
     df = pd.read_sql(f"SELECT {col_list} FROM {table_name}", mysql_engine)
     row_count = len(df)
+    # Drop with CASCADE so dependent views (e.g. dbt staging views) are removed first
+    with pg_engine.connect() as conn:
+        conn.execute(text(f"DROP TABLE IF EXISTS raw.{table_name} CASCADE"))
+        conn.commit()
     df.to_sql(table_name, pg_engine, schema="raw", if_exists="replace", index=False)
     return row_count
 
