@@ -1,25 +1,29 @@
 # Basket Craft Pipeline
 
-An ETL pipeline that extracts monthly sales data from a remote MySQL database, transforms it with dbt, and loads a summary into a local PostgreSQL instance.
+An ETL pipeline that extracts data from a remote MySQL database and loads it into two PostgreSQL targets: a local Docker instance (transformed with dbt into a sales summary) and an AWS RDS instance (all 8 raw tables, no transformation).
 
-**Final output:** `monthly_sales_summary` — revenue, order count, and average order value per product per month.
+**Transformed output:** `monthly_sales_summary` — revenue, order count, and average order value per product per month.
+**Raw output:** All MySQL tables loaded as-is into AWS RDS for ad-hoc analysis.
 
 ---
 
 ## How It Works
 
 ```
-MySQL (remote)          PostgreSQL (local Docker)
-─────────────           ─────────────────────────────────────────
-orders          ──┐
-order_items     ──┼──► public.orders / order_items / products
-products        ──┘         │
-                            ▼
-                    dbt staging views
-                    (type casts + null filters)
-                            │
-                            ▼
-                    public.monthly_sales_summary
+MySQL (remote, db.isba.co)
+│
+├─► extract/extract.py ──► PostgreSQL (local Docker)
+│      3 tables                  │
+│      (orders, order_items,     ▼
+│       products)         dbt staging views
+│                         (type casts + null filters)
+│                                │
+│                                ▼
+│                         public.monthly_sales_summary
+│
+└─► extract/extract_rds.py ──► AWS RDS PostgreSQL
+       all 8 tables                 (raw, no transforms)
+       auto-discovered
 ```
 
 ---
@@ -53,17 +57,27 @@ pip install -r requirements.txt
 
 ```bash
 # .env
+
+# MySQL source (remote)
 MYSQL_HOST=db.isba.co
 MYSQL_PORT=3306
 MYSQL_USER=analyst
 MYSQL_PASSWORD=go_lions
 MYSQL_DATABASE=basket_craft
 
+# Local Docker PostgreSQL (used by extract.py and dbt)
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
-POSTGRES_USER=pipeline
-POSTGRES_PASSWORD=pipeline
-POSTGRES_DB=basket_craft_dw
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=basket_craft
+
+# AWS RDS PostgreSQL (used by extract_rds.py)
+RDS_HOST=<your-rds-endpoint>.us-east-2.rds.amazonaws.com
+RDS_PORT=5432
+RDS_USER=student
+RDS_PASSWORD=go_lions
+RDS_DB=basket_craft
 ```
 
 **4. Create `dbt_project/profiles.yml`**
@@ -76,9 +90,9 @@ basket_craft:
       type: postgres
       host: localhost
       port: 5432
-      user: pipeline
-      password: pipeline
-      dbname: basket_craft_dw
+      user: postgres
+      password: postgres
+      dbname: basket_craft
       schema: public
       threads: 1
 ```
@@ -95,11 +109,12 @@ docker compose up -d
 
 ## Running the Pipeline
 
+### Local pipeline (Docker → dbt)
+
 ```bash
-# Activate the virtual environment
 source .venv/bin/activate
 
-# Step 1: Extract from MySQL into PostgreSQL
+# Step 1: Extract from MySQL into local Docker PostgreSQL
 python extract/extract.py
 
 # Step 2: Transform with dbt
@@ -123,6 +138,27 @@ Expected output from `dbt run`:
 2 of 4 OK created sql view model public.stg_orders
 3 of 4 OK created sql view model public.stg_products
 4 of 4 OK created sql table model public.monthly_sales_summary
+```
+
+### AWS RDS load (all raw tables)
+
+```bash
+source .venv/bin/activate
+python extract/extract_rds.py
+```
+
+Expected output:
+```
+Discovered 8 tables: employees, order_item_refunds, order_items, orders, products, users, website_pageviews, website_sessions
+Loading employees... 20 rows loaded into public.employees
+Loading order_item_refunds... 1731 rows loaded into public.order_item_refunds
+Loading order_items... 40025 rows loaded into public.order_items
+Loading orders... 32313 rows loaded into public.orders
+Loading products... 4 rows loaded into public.products
+Loading users... 31696 rows loaded into public.users
+Loading website_pageviews... 1188124 rows loaded into public.website_pageviews
+Loading website_sessions... 472871 rows loaded into public.website_sessions
+Extract complete.
 ```
 
 ---
@@ -167,4 +203,5 @@ ORDER BY month DESC, revenue_usd DESC;
 | pandas | DataFrame-based bulk loading |
 | dbt-postgres | Staging views + mart aggregation |
 | Docker | Local PostgreSQL instance |
+| AWS RDS (PostgreSQL) | Cloud-hosted raw data store |
 | pytest | Unit and integration tests |
