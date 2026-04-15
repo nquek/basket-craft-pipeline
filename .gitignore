@@ -217,3 +217,7 @@ dbt_project/profiles.yml
 
 # dbt auto-generated user ID
 dbt_project/.user.yml
+
+# macOS
+.DS_Store
+**/.DS_Store
