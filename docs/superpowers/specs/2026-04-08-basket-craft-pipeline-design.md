@@ -20,13 +20,15 @@ The pipeline follows a five-stage ETL pattern:
 SOURCE → EXTRACT → TRANSFORM → LOAD → DESTINATION
 ```
 
-| Stage | Tool | Responsibility |
-|---|---|---|
-| Source | MySQL (`db.isba.co`) | Live basket_craft transactional database |
-| Extract | Python + SQLAlchemy | Read orders, order_items, products from MySQL; write to `raw` schema in PostgreSQL |
-| Transform | dbt staging models | Clean, cast, and join raw tables into analysis-ready staging models |
-| Load | dbt mart models | Aggregate staging models into `marts.monthly_sales_summary` |
-| Destination | PostgreSQL (Docker) | Local data warehouse with `raw`, `staging`, and `marts` schemas |
+
+| Stage       | Tool                 | Responsibility                                                                     |
+| ----------- | -------------------- | ---------------------------------------------------------------------------------- |
+| Source      | MySQL (`db.isba.co`) | Live basket_craft transactional database                                           |
+| Extract     | Python + SQLAlchemy  | Read orders, order_items, products from MySQL; write to `raw` schema in PostgreSQL |
+| Transform   | dbt staging models   | Clean, cast, and join raw tables into analysis-ready staging models                |
+| Load        | dbt mart models      | Aggregate staging models into `marts.monthly_sales_summary`                        |
+| Destination | PostgreSQL (Docker)  | Local data warehouse with `raw`, `staging`, and `marts` schemas                    |
+
 
 **Tables extracted from MySQL:** `orders`, `order_items`, `products`
 All other tables (`users`, `website_sessions`, `website_pageviews`, `employees`, `order_item_refunds`) are out of scope for this dashboard.
@@ -66,47 +68,59 @@ basket-craft-pipeline/
 
 ### Raw Schema (loaded by extract.py)
 
-**`raw.orders`**
-| Column | Type |
-|---|---|
-| order_id | INTEGER |
-| created_at | TIMESTAMP |
-| website_session_id | INTEGER |
-| user_id | INTEGER |
-| primary_product_id | INTEGER |
-| items_purchased | INTEGER |
-| price_usd | NUMERIC |
-| cogs_usd | NUMERIC |
+`**raw.orders**`
 
-**`raw.order_items`**
-| Column | Type |
-|---|---|
-| order_item_id | INTEGER |
-| created_at | TIMESTAMP |
-| order_id | INTEGER |
-| product_id | INTEGER |
-| is_primary_item | BOOLEAN |
-| price_usd | NUMERIC |
-| cogs_usd | NUMERIC |
 
-**`raw.products`**
-| Column | Type |
-|---|---|
-| product_id | INTEGER |
-| created_at | TIMESTAMP |
-| product_name | VARCHAR |
-| description | TEXT |
+| Column             | Type      |
+| ------------------ | --------- |
+| order_id           | INTEGER   |
+| created_at         | TIMESTAMP |
+| website_session_id | INTEGER   |
+| user_id            | INTEGER   |
+| primary_product_id | INTEGER   |
+| items_purchased    | INTEGER   |
+| price_usd          | NUMERIC   |
+| cogs_usd           | NUMERIC   |
+
+
+`**raw.order_items**`
+
+
+| Column          | Type      |
+| --------------- | --------- |
+| order_item_id   | INTEGER   |
+| created_at      | TIMESTAMP |
+| order_id        | INTEGER   |
+| product_id      | INTEGER   |
+| is_primary_item | BOOLEAN   |
+| price_usd       | NUMERIC   |
+| cogs_usd        | NUMERIC   |
+
+
+`**raw.products**`
+
+
+| Column       | Type      |
+| ------------ | --------- |
+| product_id   | INTEGER   |
+| created_at   | TIMESTAMP |
+| product_name | VARCHAR   |
+| description  | TEXT      |
+
 
 ### Mart Schema (materialized by dbt)
 
-**`marts.monthly_sales_summary`**
-| Column | Type | Description |
-|---|---|---|
-| product_name | VARCHAR | From `products.product_name` — grouping dimension |
-| month | DATE | First day of month (`DATE_TRUNC('month', created_at)`) |
-| revenue_usd | NUMERIC | `SUM(order_items.price_usd)` |
-| order_count | INTEGER | `COUNT(DISTINCT orders.order_id)` |
-| avg_order_value_usd | NUMERIC | `revenue_usd / order_count` |
+`**marts.monthly_sales_summary**`
+
+
+| Column              | Type    | Description                                            |
+| ------------------- | ------- | ------------------------------------------------------ |
+| product_name        | VARCHAR | From `products.product_name` — grouping dimension      |
+| month               | DATE    | First day of month (`DATE_TRUNC('month', created_at)`) |
+| revenue_usd         | NUMERIC | `SUM(order_items.price_usd)`                           |
+| order_count         | INTEGER | `COUNT(DISTINCT orders.order_id)`                      |
+| avg_order_value_usd | NUMERIC | `revenue_usd / order_count`                            |
+
 
 ### Aggregation SQL
 
@@ -133,6 +147,7 @@ ORDER  BY 2, 1
 
 ```yaml
 services:
+
   postgres:
     image: postgres:16
     environment:
@@ -217,3 +232,4 @@ dbt test
 - Scheduling / orchestration (Airflow, cron) — pipeline is run manually
 - Refunds adjustment to revenue — `order_item_refunds` table excluded for now
 - User or session-level analytics
+
