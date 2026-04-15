@@ -18,13 +18,24 @@ PostgreSQL runs in Docker — start it before running the extract or any integra
 docker compose up -d
 ```
 
+On Apple Silicon with Python 3.14, `psycopg2-binary` may need Homebrew's libpq path at install time:
+```bash
+LDFLAGS="-L/opt/homebrew/opt/libpq/lib" CPPFLAGS="-I/opt/homebrew/opt/libpq/include" pip install psycopg2-binary --force-reinstall --no-cache-dir
+```
+
 ## Common Commands
 
-**Run the full pipeline:**
+**Run the local pipeline (Docker PostgreSQL):**
 ```bash
 source .venv/bin/activate
 python extract/extract.py
 cd dbt_project && dbt run --profiles-dir . && dbt test --profiles-dir .
+```
+
+**Load all MySQL tables into AWS RDS:**
+```bash
+source .venv/bin/activate
+python extract/extract_rds.py
 ```
 
 **Run all tests:**
@@ -54,8 +65,14 @@ dbt test --profiles-dir .
 
 This is a two-stage ETL pipeline:
 
-**Stage 1 — Extract (`extract/extract.py`)**
-Connects to a remote MySQL database (`db.isba.co`) and bulk-loads three tables (`orders`, `order_items`, `products`) into the local PostgreSQL `public` schema using SQLAlchemy + pandas. Credentials are read from `.env` via `python-dotenv`. The loader drops each table with `CASCADE` before reloading so dependent dbt views are not left dangling.
+**Stage 1 — Extract**
+
+Two standalone scripts share the same MySQL source (`db.isba.co`) but write to different PostgreSQL targets:
+
+- **`extract/extract.py`** — loads three hardcoded tables (`orders`, `order_items`, `products`) with explicit column lists into local Docker PostgreSQL (`POSTGRES_*` env vars). Used as the source for dbt.
+- **`extract/extract_rds.py`** — auto-discovers all tables in MySQL via `INFORMATION_SCHEMA.TABLES` and bulk-loads them raw (`SELECT *`) into AWS RDS PostgreSQL (`RDS_*` env vars). Currently discovers 8 tables: `employees`, `order_item_refunds`, `order_items`, `orders`, `products`, `users`, `website_pageviews`, `website_sessions`. Not connected to dbt.
+
+Both scripts use SQLAlchemy + pandas, drop each target table with `CASCADE` before reloading, and read credentials from `.env` via `python-dotenv`.
 
 **Stage 2 — Transform (`dbt_project/`)**
 dbt reads from `public` (the raw tables) and builds:
@@ -65,6 +82,8 @@ dbt reads from `public` (the raw tables) and builds:
 All dbt models and tests land in the `public` schema. `profiles.yml` (not committed) must be present at `dbt_project/profiles.yml` — always pass `--profiles-dir .` when running dbt commands from inside `dbt_project/`.
 
 **Not committed:** `.env`, `dbt_project/profiles.yml`
+
+`.env` must contain two sets of PostgreSQL credentials — `POSTGRES_*` for local Docker (used by `extract.py` and dbt) and `RDS_*` for AWS RDS (used by `extract_rds.py`). Both share the same `MYSQL_*` source credentials.
 
 ## Key Design Decisions
 
