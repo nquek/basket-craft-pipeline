@@ -26,8 +26,7 @@ def _build_urls():
     return mysql_url, rds_url
 
 
-def discover_tables(mysql_engine):
-    db = os.getenv("MYSQL_DATABASE")
+def discover_tables(mysql_engine, db):
     with mysql_engine.connect() as conn:
         result = conn.execute(
             text(
@@ -40,10 +39,11 @@ def discover_tables(mysql_engine):
 
 
 def load_table(mysql_engine, pg_engine, table_name):
-    df = pd.read_sql(f"SELECT * FROM {table_name}", mysql_engine)
+    # SELECT * intentional — all columns loaded raw, no filtering
+    df = pd.read_sql(f"SELECT * FROM `{table_name}`", mysql_engine)
     row_count = len(df)
     with pg_engine.connect() as conn:
-        conn.execute(text(f"DROP TABLE IF EXISTS public.{table_name} CASCADE"))
+        conn.execute(text(f'DROP TABLE IF EXISTS public."{table_name}" CASCADE'))
         conn.commit()
     df.to_sql(table_name, pg_engine, schema="public", if_exists="replace", index=False)
     return row_count
@@ -51,6 +51,7 @@ def load_table(mysql_engine, pg_engine, table_name):
 
 def main():
     mysql_url, rds_url = _build_urls()
+    mysql_engine = rds_engine = None
 
     try:
         mysql_engine = create_engine(mysql_url)
@@ -68,8 +69,12 @@ def main():
         print(f"ERROR: Cannot connect to RDS at {os.getenv('RDS_HOST')}: {e}")
         sys.exit(1)
 
+    with rds_engine.connect() as conn:
+        conn.execute(text("CREATE SCHEMA IF NOT EXISTS public"))
+        conn.commit()
+
     try:
-        tables = discover_tables(mysql_engine)
+        tables = discover_tables(mysql_engine, os.getenv("MYSQL_DATABASE"))
         print(f"Discovered {len(tables)} tables: {', '.join(tables)}")
 
         for table_name in tables:
@@ -79,8 +84,10 @@ def main():
 
         print("Extract complete.")
     finally:
-        mysql_engine.dispose()
-        rds_engine.dispose()
+        if mysql_engine:
+            mysql_engine.dispose()
+        if rds_engine:
+            rds_engine.dispose()
 
 
 if __name__ == "__main__":
