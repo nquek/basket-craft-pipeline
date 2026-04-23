@@ -62,6 +62,7 @@ def load_table(rds_engine, sf_conn, table_name, database, schema):
     sf_table = table_name.upper()
     cursor = sf_conn.cursor()
     cursor.execute(f'TRUNCATE TABLE IF EXISTS "{schema}"."{sf_table}"')
+    cursor.close()
     write_pandas(
         sf_conn, df, sf_table,
         database=database,
@@ -73,6 +74,9 @@ def load_table(rds_engine, sf_conn, table_name, database, schema):
 
 
 def main():
+    rds_engine = None
+    sf_conn = None
+
     try:
         _validate_env()
     except EnvironmentError as e:
@@ -116,8 +120,10 @@ def main():
             for name, err in failed:
                 print(f"  Failed: {name} — {err}")
     finally:
-        rds_engine.dispose()
-        sf_conn.close()
+        if rds_engine:
+            rds_engine.dispose()
+        if sf_conn:
+            sf_conn.close()
 
     if failed:
         sys.exit(1)

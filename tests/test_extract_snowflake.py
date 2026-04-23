@@ -85,6 +85,7 @@ def test_load_table_failure_continues(capsys):
     assert "products" in captured.out
     assert "type mismatch" in captured.out
     assert exc_info.value.code == 1
+    assert mock_load.call_count == 2
 
 
 def test_summary_all_success(capsys):
