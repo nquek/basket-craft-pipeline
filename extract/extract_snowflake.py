@@ -60,9 +60,8 @@ def load_table(rds_engine, sf_conn, table_name, database, schema):
     df = pd.read_sql(f'SELECT * FROM public."{table_name}"', rds_engine)
     row_count = len(df)
     sf_table = table_name.upper()
-    cursor = sf_conn.cursor()
-    cursor.execute(f'TRUNCATE TABLE IF EXISTS "{schema}"."{sf_table}"')
-    cursor.close()
+    with sf_conn.cursor() as cursor:
+        cursor.execute(f'TRUNCATE TABLE IF EXISTS "{schema}"."{sf_table}"')
     write_pandas(
         sf_conn, df, sf_table,
         database=database,
