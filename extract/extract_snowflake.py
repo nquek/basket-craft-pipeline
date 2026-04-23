@@ -70,3 +70,58 @@ def load_table(rds_engine, sf_conn, table_name, database, schema):
         quote_identifiers=False,
     )
     return row_count
+
+
+def main():
+    try:
+        _validate_env()
+    except EnvironmentError as e:
+        print(f"ERROR: {e}")
+        sys.exit(1)
+
+    try:
+        rds_engine = _connect_rds()
+    except Exception as e:
+        print(f"ERROR: Cannot connect to RDS at {os.getenv('RDS_HOST')}: {e}")
+        sys.exit(1)
+
+    try:
+        sf_conn = _connect_snowflake()
+    except Exception as e:
+        print(f"ERROR: Cannot connect to Snowflake account {os.getenv('SNOWFLAKE_ACCOUNT')}: {e}")
+        rds_engine.dispose()
+        sys.exit(1)
+
+    database = os.getenv("SNOWFLAKE_DATABASE")
+    schema = os.getenv("SNOWFLAKE_SCHEMA")
+    failed = []
+
+    try:
+        tables = discover_tables(rds_engine)
+        print(f"Discovered {len(tables)} tables: {', '.join(tables)}")
+
+        for table_name in tables:
+            print(f"Loading {table_name}...", end=" ", flush=True)
+            try:
+                count = load_table(rds_engine, sf_conn, table_name, database, schema)
+                print(f"{count} rows loaded into {schema}.{table_name.upper()}")
+            except Exception as e:
+                print(f"FAILED — {e}")
+                failed.append((table_name, str(e)))
+
+        total = len(tables)
+        succeeded = total - len(failed)
+        print(f"\nExtract complete. {succeeded}/{total} tables loaded successfully.")
+        if failed:
+            for name, err in failed:
+                print(f"  Failed: {name} — {err}")
+    finally:
+        rds_engine.dispose()
+        sf_conn.close()
+
+    if failed:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

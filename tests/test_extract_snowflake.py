@@ -56,3 +56,47 @@ def test_load_table_returns_row_count_and_calls_truncate():
         auto_create_table=True,
         quote_identifiers=False,
     )
+
+
+_FULL_ENV = {
+    "RDS_USER": "u", "RDS_PASSWORD": "p", "RDS_HOST": "h",
+    "RDS_PORT": "5432", "RDS_DB": "db",
+    "SNOWFLAKE_ACCOUNT": "acc", "SNOWFLAKE_USER": "su",
+    "SNOWFLAKE_PASSWORD": "sp", "SNOWFLAKE_WAREHOUSE": "wh",
+    "SNOWFLAKE_DATABASE": "DB", "SNOWFLAKE_SCHEMA": "RAW",
+}
+
+
+def test_load_table_failure_continues(capsys):
+    """main() records a failing table and continues loading the next one."""
+    from extract.extract_snowflake import main
+
+    with patch.dict(os.environ, _FULL_ENV), \
+         patch("extract.extract_snowflake._connect_rds"), \
+         patch("extract.extract_snowflake._connect_snowflake"), \
+         patch("extract.extract_snowflake.discover_tables", return_value=["orders", "products"]), \
+         patch("extract.extract_snowflake.load_table") as mock_load, \
+         pytest.raises(SystemExit) as exc_info:
+        mock_load.side_effect = [Exception("type mismatch"), 5]
+        main()
+
+    captured = capsys.readouterr()
+    assert "orders" in captured.out
+    assert "products" in captured.out
+    assert "type mismatch" in captured.out
+    assert exc_info.value.code == 1
+
+
+def test_summary_all_success(capsys):
+    """main() prints a 2/2 success summary and exits 0 when all tables load."""
+    from extract.extract_snowflake import main
+
+    with patch.dict(os.environ, _FULL_ENV), \
+         patch("extract.extract_snowflake._connect_rds"), \
+         patch("extract.extract_snowflake._connect_snowflake"), \
+         patch("extract.extract_snowflake.discover_tables", return_value=["orders", "products"]), \
+         patch("extract.extract_snowflake.load_table", return_value=10):
+        main()
+
+    captured = capsys.readouterr()
+    assert "2/2 tables loaded successfully" in captured.out
