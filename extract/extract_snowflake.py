@@ -6,6 +6,8 @@ from sqlalchemy import create_engine, text
 import snowflake.connector
 from snowflake.connector.pandas_tools import write_pandas
 
+load_dotenv()
+
 REQUIRED_ENV_VARS = [
     "RDS_USER", "RDS_PASSWORD", "RDS_HOST", "RDS_PORT", "RDS_DB",
     "SNOWFLAKE_ACCOUNT", "SNOWFLAKE_USER", "SNOWFLAKE_PASSWORD",
