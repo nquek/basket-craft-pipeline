@@ -54,3 +54,19 @@ def discover_tables(rds_engine):
             )
         )
         return [row[0] for row in result]
+
+
+def load_table(rds_engine, sf_conn, table_name, database, schema):
+    df = pd.read_sql(f'SELECT * FROM public."{table_name}"', rds_engine)
+    row_count = len(df)
+    sf_table = table_name.upper()
+    cursor = sf_conn.cursor()
+    cursor.execute(f'TRUNCATE TABLE IF EXISTS "{schema}"."{sf_table}"')
+    write_pandas(
+        sf_conn, df, sf_table,
+        database=database,
+        schema=schema,
+        auto_create_table=True,
+        quote_identifiers=False,
+    )
+    return row_count
