@@ -43,3 +43,14 @@ def _connect_snowflake():
         database=os.getenv("SNOWFLAKE_DATABASE"),
         schema=os.getenv("SNOWFLAKE_SCHEMA"),
     )
+
+
+def discover_tables(rds_engine):
+    with rds_engine.connect() as conn:
+        result = conn.execute(
+            text(
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"
+            )
+        )
+        return [row[0] for row in result]
