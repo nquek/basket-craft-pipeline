@@ -68,5 +68,5 @@ def test_load_table_calls_to_sql_with_correct_args():
         with patch("pandas.DataFrame.to_sql") as mock_to_sql:
             load_table(mock_mysql, mock_pg, "orders", ["order_id"])
             mock_to_sql.assert_called_once_with(
-                "orders", mock_pg, schema="raw", if_exists="replace", index=False
+                "orders", mock_pg, schema="public", if_exists="replace", index=False
             )
