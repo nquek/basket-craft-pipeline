@@ -60,12 +60,14 @@ def load_table(rds_engine, sf_conn, table_name, database, schema):
     df = pd.read_sql(f'SELECT * FROM public."{table_name}"', rds_engine)
     row_count = len(df)
     sf_table = table_name.upper()
+    sf_schema = schema.upper()
+    sf_database = database.upper()
     with sf_conn.cursor() as cursor:
-        cursor.execute(f'TRUNCATE TABLE IF EXISTS "{schema}"."{sf_table}"')
+        cursor.execute(f'TRUNCATE TABLE IF EXISTS {sf_database}.{sf_schema}.{sf_table}')
     write_pandas(
         sf_conn, df, sf_table,
-        database=database,
-        schema=schema,
+        database=sf_database,
+        schema=sf_schema,
         auto_create_table=True,
         quote_identifiers=False,
     )
@@ -95,11 +97,14 @@ def main():
         rds_engine.dispose()
         sys.exit(1)
 
-    database = os.getenv("SNOWFLAKE_DATABASE")
-    schema = os.getenv("SNOWFLAKE_SCHEMA")
+    database = os.getenv("SNOWFLAKE_DATABASE").upper()
+    schema = os.getenv("SNOWFLAKE_SCHEMA").upper()
     failed = []
 
     try:
+        with sf_conn.cursor() as cursor:
+            cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {database}.{schema}")
+
         tables = discover_tables(rds_engine)
         print(f"Discovered {len(tables)} tables: {', '.join(tables)}")
 

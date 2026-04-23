@@ -37,6 +37,8 @@ def test_load_table_returns_row_count_and_calls_truncate():
     mock_rds_engine = MagicMock()
     mock_sf_conn = MagicMock()
     mock_cursor = MagicMock()
+    mock_cursor.__enter__ = MagicMock(return_value=mock_cursor)
+    mock_cursor.__exit__ = MagicMock(return_value=False)
     mock_sf_conn.cursor.return_value = mock_cursor
 
     fake_df = pd.DataFrame({"id": [1, 2, 3], "name": ["a", "b", "c"]})
@@ -47,7 +49,7 @@ def test_load_table_returns_row_count_and_calls_truncate():
 
     assert count == 3
     mock_cursor.execute.assert_called_once_with(
-        'TRUNCATE TABLE IF EXISTS "RAW"."ORDERS"'
+        'TRUNCATE TABLE IF EXISTS MYDB.RAW.ORDERS'
     )
     mock_write.assert_called_once_with(
         mock_sf_conn, fake_df, "ORDERS",
